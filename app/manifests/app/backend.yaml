@@ -2,32 +2,38 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend-app
+  labels:
+    app: backend
+  annotations:
+    "sidecar.jaegertracing.io/inject": "true"
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: backend
+      tier: backend
   template:
     metadata:
       labels:
         app: backend
+        tier: backend
+      annotations:
+        sidecar.istio.io/inject: "true" 
     spec:
       containers:
-      - env:
-        - name: JAEGER_AGENT_HOST
-          value: "jaeger-agent.observability.svc.cluster.local"
-        - name: JAEGER_AGENT_PORT
-          value: "6831"
-        name: backend
+      - name: backend
         # We advise you to build, push and use your own image, instead of using instructor's image.      
-        image: leon494/backend:v1.0.2
+        image: leon494/backend:v1.0.4
+        env:
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://jaeger-collector.observability.svc.cluster.local:4318"
         ports:
         - containerPort: 8081
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend-service
+  name: backend
   labels:
     app: backend
 spec:
@@ -35,24 +41,26 @@ spec:
     app: backend
   ports:
     - port: 8081
-      targetPort: 8080
+      targetPort: 8081
+      name: backend
   type: LoadBalancer
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor  
 metadata:
   name: backend-service-monitor
+  namespace: monitoring
   labels:
     app: backend
-    release: prometheus
+    release: prometheus # must match Helm release label
 spec:
   selector:
     matchLabels:
-      app: backend
+      app: backend  # must match labels on the *Service*
   namespaceSelector:
     matchNames:
-      - default
+      - default # namespace of the *Service*
   endpoints:
-    - port: http
+    - port: backend
       interval: 15s
       path: /metrics

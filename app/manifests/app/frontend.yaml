@@ -15,18 +15,39 @@ spec:
       containers:
       - name: frontend
         # We advise you to build, push and use your own image, instead of using instructor's image.
-        image: leon494/frontend:v1.0.2
+        image: leon494/frontend:v1.0.4
         ports:
         - containerPort: 8080
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: frontend-service
+  name: frontend
 spec:
   selector:
     app: frontend
   ports:
     - port: 8080
       targetPort: 8080
+      name: frontend
   type: LoadBalancer
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor  
+metadata:
+  name: frontend-service-monitor
+  namespace: monitoring
+  labels:
+    app: frontend
+    release: prometheus # must match Helm release label
+spec:
+  selector:
+    matchLabels:
+      app: frontend  # must match labels on the *Service*
+  namespaceSelector:
+    matchNames:
+      - default # namespace of the *Service*
+  endpoints:
+    - port: frontend
+      interval: 15s
+      path: /metrics

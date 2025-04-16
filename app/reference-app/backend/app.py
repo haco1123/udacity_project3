@@ -38,6 +38,10 @@ def init_tracer(service):
             "sampler": {"type": "const", "param": 1},
             "logging": True,
             "reporter_batch_size": 1,
+            "local_agent": {
+                "reporting_host": "localhost",  # Passe dies an, falls Jaeger nicht lokal läuft
+                "reporting_port": 6831,
+            },
         },
         service_name=service,
         validate=True,
@@ -48,14 +52,14 @@ def init_tracer(service):
     return config.initialize_tracer()
 
 
-tracer = init_tracer("trial")
+tracer = init_tracer("backend")
 flask_tracer = FlaskTracing(tracer, True, app)
 
 
 @app.route("/")
 def homepage():
     with tracer.start_span("homepage") as span:
-        span.set_tag('http.method;', 'Hello World')
+        span.set_tag('http.method', 'Hello World')
         span.set_tag('http.status_code', 200)
     return "Hello World"
 
@@ -64,7 +68,7 @@ def homepage():
 def my_api():
     with tracer.start_span("my-api") as span:
         answer = "something"
-        span.set_tag('http.method;', answer)
+        span.set_tag('http.method', answer)
         span.set_tag('http.status_code', 200)
         
     return jsonify(repsonse=answer)
